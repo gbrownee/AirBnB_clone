@@ -57,7 +57,7 @@ class HBNBCommand(cmd.Cmd):
         if not ('.' in splt_line[0] and '(' in splt_line[0] and ')' in line):
             return line
         # use this string as a refernece to the regex
-        # User.update(id, {"first_name":"khennyyb", "email":"test@alx.com"})
+        # User.update(id, {"first_name":"Byenkya", "email":"test@alx.com"})
         # this finds the class name from the start
         # of the line to the first dot it encounters [User.]
         cls = re.search(r".+?\.", line)
@@ -87,12 +87,12 @@ class HBNBCommand(cmd.Cmd):
 
         # this finds the rest of arguments either are normal arguments
         # or a dictionary they will always be between a comman "," and a ")"
-        # this find [, {"first_name":"khennyyb", "email":"test@alx.com"})]
+        # this find [, {"first_name":"Byenkya", "email":"test@alx.com"})]
         args = re.search(r",.+?\)", line)
         evl_dict = ''
         if args:
-            # change [, {"first_name":"khennyyb", "email":"test@alx.com"})]
-            # to [{"first_name":"khennyyb", "email":"test@alx.com"}]
+            # change [, {"first_name":"Byenkya", "email":"test@alx.com"})]
+            # to [{"first_name":"Byenkya", "email":"test@alx.com"}]
             args = args.group(0)[1:-1].strip()
             try:
                 # trying to cast it to a dict
@@ -113,9 +113,9 @@ class HBNBCommand(cmd.Cmd):
                                         id.strip("\"'"),
                                         args)
         # so this
-        # User.update(id, {"first_name":"khennyyb", "email":"test@alx.com"})
+        # User.update(id, {"first_name":"Byenkya", "email":"test@alx.com"})
         # will become this
-        # update User id {"first_name":"khennyyb", "email":"test@alx.com"}
+        # update User id {"first_name":"Byenkya", "email":"test@alx.com"}
         return new_line
 
     def postcmd(self, stop, line):
