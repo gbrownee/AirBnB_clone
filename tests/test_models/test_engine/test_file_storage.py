@@ -1,82 +1,111 @@
 #!/usr/bin/python3
-"""Test File Storage"""
-import unittest
-import models
-from models.engine.file_storage import FileStorage
+''' module for file_storage tests '''
+from unittest import TestCase
+import json
+import re
+from uuid import UUID, uuid4
 from datetime import datetime
+from time import sleep
 import os
 
-
-class TestFileStorage(unittest.TestCase):
-    """unit test"""
-    def test_doc1(self):
-        """test docstring for module"""
-        res = "Module has no documentation"
-        self.assertIsNotNone(models.engine.file_storage.__doc__, res)
-
-    def test_doc2(self):
-        """test docstring for class"""
-        res = "Class has no documentation"
-        doc = FileStorage.__doc__
-        self.assertIsNotNone(doc, res)
-
-    def test_doc3(self):
-        """test documentation for methods"""
-        res = "all method has no documentation"
-        func = FileStorage.all.__doc__
-        self.assertIsNotNone(func, res)
-
-        res = "new method has no documentation"
-        function = FileStorage.new.__doc__
-        self.assertIsNotNone(function, res)
-
-        res = "save method has no documentation"
-        function = FileStorage.save.__doc__
-        self.assertIsNotNone(function, res)
-
-        res = "reload method has no documentation"
-        function = FileStorage.reload.__doc__
-        self.assertIsNotNone(function, res)
-
-    def test_file4(self):
-        """test the file permissions"""
-        path = 'tests/test_models/test_engine/test_file_storage.py'
-        is_readable = os.access(path, os.R_OK)
-        self.assertTrue(is_readable)
-
-        is_executable = os.access(path, os.X_OK)
-        self.assertTrue(is_executable)
-
-        is_writable = os.access(path, os.W_OK)
-        self.assertTrue(is_writable)
-
-    def test_file5(self):
-        """test the file permissions"""
-        path = 'models/engine/file_storage.py'
-        is_readable = os.access(path, os.R_OK)
-        self.assertTrue(is_readable)
-
-        is_executable = os.access(path, os.X_OK)
-        self.assertTrue(is_executable)
-
-        is_writable = os.access(path, os.W_OK)
-        self.assertTrue(is_writable)
-
-    def test_instance1(self):
-        """test instance"""
-        storage = FileStorage()
-        self.assertIsInstance(storage, FileStorage)
-
-    @classmethod
-    def setUps(s):
-        """set up for test"""
-        s.user = User()
-        s.user.first_name = "Josh"
-        s.user.last_name = "Byenkya"
-        s.user.email = "yoo@gmail.com"
-        s.storage = FileStorage()
-        s.path = "file.json"
+from models import storage
+from models.engine.file_storage import FileStorage
+from models.base_model import BaseModel
 
 
-if __name__ == "__main__":
-    unittest.main()
+class TestFileStorage(TestCase):
+    ''' tests FileStorage class '''
+    def test_5(self):
+        ''' tests task 4 '''
+        FS_dict = FileStorage.__dict__
+        FS__path = '_FileStorage__file_path'
+        FS__objs = '_FileStorage__objects'
+        FS_path = FS_dict[FS__path]
+        FS_objs = FS_dict[FS__objs]
+
+        # valid types
+        self.assertTrue(type(FS_path) is str and FS_path)
+        self.assertTrue(type(FS_objs) is dict)
+
+        # same object returned
+        self.assertTrue(getattr(storage, FS__path))
+        self.assertTrue(getattr(storage, FS__objs) is storage.all())
+
+        # FS_objs.clear()
+        storage.all().clear()
+
+        # object registration and persistent __objects dict
+        oobjs = storage.all()
+        oobjs_cp = oobjs.copy()
+        obj = BaseModel()
+        storage.new(obj)
+        self.assertTrue(oobjs is storage.all())
+        self.assertEqual(len(oobjs.keys()), 1)
+        self.assertTrue(set(storage.all().keys())
+                        .difference(set(oobjs_cp.keys())) ==
+                        {'BaseModel.{}'.format(obj.id)})
+
+        oobjs_cp = oobjs.copy()
+        # storage.new(obj)
+        self.assertTrue(oobjs is storage.all())
+        self.assertEqual(oobjs, oobjs_cp)
+
+        obj = BaseModel()
+        storage.new(obj)
+        self.assertEqual(len(oobjs.keys()), 2)
+
+        # check serialization
+        oobjs_cp = oobjs.copy()
+        storage.save()
+        self.assertTrue(os.path.isfile(FS_path))
+        with open(FS_path, 'r') as file:
+            js_objs = json.load(file)
+            self.assertTrue(type(js_objs) is dict)
+            self.assertEqual(len(js_objs.keys()), 2)
+            self.assertTrue(all(v in oobjs.keys() for v in js_objs.keys()))
+        storage.all().clear()
+        storage.reload()
+
+        # check deserialization
+        for k, v in oobjs_cp.items():
+            oobjs_cp[k] = v.to_dict()
+        oobjs_cp2 = storage.all().copy()
+        for k, v in oobjs_cp2.items():
+            oobjs_cp2[k] = v.to_dict()
+        self.assertEqual(oobjs_cp, oobjs_cp2)
+
+        # ### check no deserialization for absent file
+        oobjs_cp = storage.all().copy()
+        os.remove(FS_path)
+        storage.reload()
+        self.assertEqual(oobjs_cp, storage.all())
+
+        # automatic registration for instances created with no args
+        obj = BaseModel()
+        kid = 'BaseModel.{}'.format(obj.id)
+        self.assertTrue(kid in storage.all() and storage.all()[kid] is obj)
+        sleep(.01)
+        now = datetime.utcnow()
+        obj.updated_at = now
+        obj.save()
+        storage.all().clear()
+        storage.reload()
+        oobjs = storage.all()
+        storage.reload()  # insignificant reload
+        oobjs2 = storage.all()
+
+        # same deserialization
+        self.assertEqual(obj.to_dict(), storage.all()[kid].to_dict())
+        self.assertFalse(obj is storage.all()[kid])
+
+        # args should not be counted towards manual instantiation
+        obj = BaseModel(1, 2, 3)
+        kid = 'BaseModel.{}'.format(obj.id)
+        self.assertTrue(kid in storage.all() and storage.all()[kid] is obj)
+
+        # instances constructed with kwargs are not registered
+        obj = BaseModel(id=str(uuid4()), created_at=now.isoformat(),
+                        updated_at=now.isoformat())
+        kid = 'BaseModel.{}'.format(obj.id)
+        self.assertFalse(kid in storage.all())
+        self.assertFalse(obj in storage.all().values())

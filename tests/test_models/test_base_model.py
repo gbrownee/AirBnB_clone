@@ -1,97 +1,114 @@
 #!/usr/bin/python3
-"""
-    Unit Testing For BaseModel class
-"""
-from models import BaseModel
-import unittest
-from unittest import mock
-import inspect
-import time
+''' module for base_model tests '''
+from unittest import TestCase
+import json
+import re
+from uuid import UUID, uuid4
 from datetime import datetime
-import models
+from time import sleep
+from models.base_model import BaseModel
+from models import storage
 
 
-class TestBaseModel(unittest.TestCase):
-    """ Testing the Base Class """
-    def test_doc1(self):
-        """test documentation for module"""
-        res = "Module has no documenation"
-        self.assertIsNotNone(models.base_model.__doc__, res)
+class TestBaseModel(TestCase):
+    ''' tests BaseModel class '''
+    def test_3(self):
+        ''' task 0 tests '''
+        obj = BaseModel()
 
-    def test_doc2(self):
-        """test documentation for class"""
-        res = "Module has no documenation"
-        self.assertIsNotNone(models.base_model.BaseModel.__doc__, res)
+        # id format and uniqueness
+        self.assertTrue(type(getattr(obj, 'id', None) is str) and
+                        UUID(obj.id))
+        self.assertNotEqual(BaseModel().id, obj.id)
+        self.assertNotEqual(BaseModel().id, BaseModel().id)
+        self.assertNotEqual(BaseModel().id, BaseModel().id)
 
-    def test_doc3(self):
-        """testing for methods"""
-        res = "method init has no documenation"
-        self.assertIsNotNone(models.base_model.BaseModel.__init__.__doc__, res)
-        res1 = "method __str__ has no documenation"
-        self.assertIsNotNone(models.base_model.BaseModel.__str__.__doc__, res1)
-        res2 = "method save has no documenation"
-        self.assertIsNotNone(models.base_model.BaseModel.save.__doc__, res2)
-        res3 = "method to_dict has no documenation"
-        self.assertIsNotNone(models.base_model.BaseModel.to_dict.__doc__, res3)
+        # created_at and updated_at types
+        self.assertTrue(type(obj.created_at) is datetime)
+        self.assertTrue(type(obj.updated_at) is datetime)
 
-    def test_str(self):
-        """
-            test str method
-        """
-        instance = BaseModel()
-        correct_str = "[BaseModel] ({}) {}".format(
-                                                    instance.id,
-                                                    instance.__dict__
-                                                        )
-        self.assertEqual(correct_str, str(instance))
+        # string representation
+        self.assertEqual(str(obj), '[{}] ({}) {}'.format(
+            'BaseModel', obj.id, obj.__dict__))
 
-    def to_dict_value(self):
-        """
-            test return value of dict
-        """
-        ti = "%Y-%m-%dT%H:%M:%S.%f"
-        inst = BaseModel()
-        dict_base = instance.to_dict()
-        self.assertEqual(dict_base["__class__"], "BaseModel")
-        self.assertEqual(type(dict_base["created_at"]), str)
-        self.assertEqual(type(dict_base["updated_at"]), str)
-        self.assertEqual(
-                            dict_base["created_at"],
-                            inst.created_at.strftime(ti)
-                                    )
-        self.assertEqual(
-                            dict_base["updated_at"],
-                            inst.updated_at.strftime(ti)
-                                    )
+        # time updates
+        old_ctm = obj.created_at
+        old_utm = obj.updated_at
+        sleep(0.01)
+        obj.save()
+        self.assertEqual(old_ctm, obj.created_at)
+        self.assertNotEqual(old_utm, obj.updated_at)
 
-    def test_to_dict(self):
-        """
-            test to dic method
-        """
-        inst = BaseModel()
-        inst.name = "kal"
-        dict_inst = inst.to_dict()
-        attr = [
-                    "id",
-                    "created_at",
-                    "updated_at",
-                    "name",
-                    "__class__"]
-        self.assertCountEqual(dict_inst.keys(), attr)
-        self.assertEqual(dict_inst['__class__'], 'BaseModel')
-        self.assertEqual(dict_inst['name'], "kal")
+        old_ctm = obj.created_at
+        old_utm = obj.updated_at
+        sleep(0.01)
+        obj.save()
+        self.assertEqual(old_ctm, obj.created_at)
+        self.assertNotEqual(old_utm, obj.updated_at)
 
-    @mock.patch("models.storage")
-    def test_save(self, mock_storage):
-        """
-            test save and update
-        """
-        instance = BaseModel()
-        old_value_created = instance.created_at
-        old_value_update = instance.updated_at
-        instance.save()
-        new_value_created = instance.created_at
-        new_value_updated = instance.updated_at
-        self.assertNotEqual(old_value_update, new_value_updated)
-        self.assertEqual(old_value_created, new_value_created)
-        self.assertTrue(mock_storage.save.called)
+        self.assertEqual(obj.to_dict(),
+                         {'__class__': 'BaseModel', 'id': obj.id,
+                          'created_at': obj.created_at.isoformat(),
+                          'updated_at': obj.updated_at.isoformat()})
+
+    def test_4(self):
+        ''' task 4 tests '''
+        # args ignorance
+        obj = BaseModel(1, 2, 3, 'kk')
+        self.assertTrue(type(getattr(obj, 'id', None) is str) and
+                        UUID(obj.id))
+
+        now = datetime.utcnow()
+        obj_dict = {'id': str(uuid4()), 'created_at': now.isoformat(),
+                    'updated_at': now.isoformat(), '__class__': 'BaseModel'}
+        # kwargs parsing
+        obj = BaseModel(**obj_dict)
+        self.assertEqual(obj.id, obj_dict['id'])
+        # datetime parsing
+        self.assertEqual(obj.created_at, now)
+        self.assertEqual(obj.updated_at, now)
+        # __class__ should not be added as an attribute
+        self.assertFalse('__class__' in obj.__dict__)
+
+        # same objects creation
+        self.assertEqual(obj.to_dict(), BaseModel(**obj_dict).to_dict())
+        self.assertEqual(str(obj), str(BaseModel(**obj_dict)))
+
+        # no __class__ dependency
+        del obj_dict['__class__']
+        BaseModel(**obj_dict)  # no execption raised
+
+        ##
+        ##
+        ##
+        # normal creation in kwargs absence
+        obj = BaseModel()
+        self.assertTrue(type(getattr(obj, 'id', None) is str) and
+                        UUID(obj.id))
+        self.assertNotEqual(BaseModel().id, obj.id)
+        self.assertNotEqual(BaseModel().id, BaseModel().id)
+        self.assertNotEqual(BaseModel().id, BaseModel().id)
+
+        # time updates
+        old_ctm = obj.created_at
+        old_utm = obj.updated_at
+        sleep(0.01)
+        obj.save()
+        self.assertEqual(old_ctm, obj.created_at)
+        self.assertLess(old_utm, obj.updated_at)
+
+        old_ctm = obj.created_at
+        old_utm = obj.updated_at
+        key = 'BaseModel.{}'.format(obj.id)
+        obj.save()
+        storage.all().clear()
+        storage.reload()
+        sleep(0.01)
+        # obj.save()
+        nobj = storage.all()[key]
+
+        self.assertEqual(old_ctm, obj.created_at)
+        self.assertNotEqual(old_utm, obj.updated_at)
+        self.assertEqual(nobj.updated_at, obj.updated_at)
+        obj.updated_at = nobj.updated_at
+        self.assertEqual(obj.to_dict(), nobj.to_dict())

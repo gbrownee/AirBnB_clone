@@ -1,31 +1,19 @@
 #!/usr/bin/python3
-"""
-    Test Case for state Model
-"""
-from models import BaseModel
-from models import State
-import unittest
-import models
+''' module for state tests '''
+from unittest import TestCase
+import json
+import re
+from uuid import UUID, uuid4
+from datetime import datetime
+from time import sleep
+
+from models.base_model import BaseModel
+from models.state import State
 
 
-class Teststate(unittest.TestCase):
-    """
-        unitesst for state class
-    """
-    def issub_class(self):
-        """
-            test if state class is sub class of base model
-        """
-        state = State()
-        self.assertIsInstance(state, BaseModel)
-        self.assertTrue(hasattr(state, "id"))
-        self.assertTrue(hasattr(state, "created_at"))
-        self.assertTrue(hasattr(state, "update_at"))
-
-    def test_name_attr(self):
-        """
-            Test that State has attribute name
-        """
-        state = State()
-        self.assertTrue(hasattr(state, "name"))
-        self.assertEqual(state.name, "")
+class TestState(TestCase):
+    ''' tests State class '''
+    def test_9(self):
+        ''' task 9 tests '''
+        self.assertTrue(issubclass(State, BaseModel))
+        self.assertEqual(State.name, '')

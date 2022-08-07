@@ -1,283 +1,281 @@
 #!/usr/bin/python3
+"""A unit test module for the console (command interpreter).
 """
-    TestConsole module
-"""
+import json
+import os
 import unittest
-import sys
 from io import StringIO
-import re
 from unittest.mock import patch
+
 from console import HBNBCommand
-from models import *
-import random
-
-"""
-    The plus symbol + matche one or more occurrences of the pattern left to it
-    The dollar symbol $ is used to check if it ends with a certain character.
-"""
+from models import storage
+from models.base_model import BaseModel
+from tests import clear_stream
 
 
-class TestConsole(unittest.TestCase):
+class TestHBNBCommand(unittest.TestCase):
+    """Represents the test class for the HBNBCommand class.
     """
-        TestConsole class
-    """
-    classes = ["User", "State", "Review", "Place", "City", "BaseModel"]
 
-    def test_help_console_cmd(self):
+    def test_console_v_0_0_1(self):
+        """Tests the features of version 0.0.1 of the console.
         """
-        Test <help>
-        """
-        expected = """
-Documented commands (type help <topic>):
-========================================
-EOF  all  create  destroy  help  quit  show  update
-\n"""
-        with patch('sys.stdout', new=StringIO()) as f:
-            HBNBCommand().onecmd("help")
-            self.assertEqual(expected, f.getvalue())
+        with patch('sys.stdout', new=StringIO()) as cout:
+            cons = HBNBCommand()
+            # normal empty line
+            cons.onecmd('')
+            cons.onecmd('    ')
+            self.assertEqual(cout.getvalue(), '')
+            # empty line after a wrong command
+            clear_stream(cout)
+            cons.onecmd('ls')
+            cons.onecmd('')
+            cons.onecmd('  ')
+            self.assertEqual(cout.getvalue(), '*** Unknown syntax: ls\n')
+            # the help command
+            clear_stream(cout)
+            cons.onecmd('help')
+            self.assertNotEqual(cout.getvalue().strip(), '')
+            clear_stream(cout)
+            cons.onecmd('help quit')
+            self.assertNotEqual(cout.getvalue().strip(), '')
+            clear_stream(cout)
+            with self.assertRaises(SystemExit) as ex:
+                cons.onecmd('EOF')
+            self.assertEqual(ex.exception.code, 0)
+            with self.assertRaises(SystemExit) as ex:
+                cons.onecmd('quit')
+            self.assertEqual(ex.exception.code, 0)
 
-    def test_help_quit_console_cmd(self):
+    def test_console_v_0_1(self):
+        """Tests the features of version 0.1 of the console.
         """
-        Tests <help quit>
-        """
-        with patch('sys.stdout', new=StringIO()) as f:
-            HBNBCommand().onecmd("help quit")
-            self.assertRegex(f.getvalue(), 'Quit command+')
+        with patch('sys.stdout', new=StringIO()) as cout:
+            cons = HBNBCommand()
+            if os.path.isfile('file.json'):
+                os.unlink('file.json')
+        # region The create command
+            # missing class name
+            clear_stream(cout)
+            cons.onecmd('create')
+            self.assertEqual(cout.getvalue(), "** class name missing **\n")
+            # invalid class name
+            clear_stream(cout)
+            cons.onecmd('create Base')
+            self.assertEqual(cout.getvalue(), "** class doesn't exist **\n")
+            clear_stream(cout)
+            cons.onecmd('create base')
+            self.assertEqual(cout.getvalue(), "** class doesn't exist **\n")
+            # valid class name
+            clear_stream(cout)
+            cons.onecmd('create BaseModel')
+            mdl_sid = 'BaseModel.{}'.format(cout.getvalue().strip())
+            self.assertTrue(mdl_sid in storage.all().keys())
+            self.assertTrue(type(storage.all()[mdl_sid]) is BaseModel)
+            with open('file.json', mode='r') as file:
+                json_obj = json.load(file)
+                self.assertTrue(type(json_obj) is dict)
+                self.assertTrue(mdl_sid in json_obj)
+        # endregion
+        # region The show command
+        # endregion
+        # region The destroy command
+        # endregion
+        # region The all command
+            # invalid class name
+            clear_stream(cout)
+            cons.onecmd('all Base')
+            self.assertEqual(cout.getvalue(), "** class doesn't exist **\n")
+            clear_stream(cout)
+            cons.onecmd('all base')
+            self.assertEqual(cout.getvalue(), "** class doesn't exist **\n")
+            # valid class name
+            clear_stream(cout)
+            cons.onecmd('create BaseModel')
+            mdl_id = cout.getvalue().strip()
+            mdl_sid = 'BaseModel.{}'.format(mdl_id)
+            clear_stream(cout)
+            cons.onecmd('create Amenity')
+            mdl_id1 = cout.getvalue().strip()
+            mdl_sid1 = 'Amenity.{}'.format(mdl_id1)
+            self.assertTrue(mdl_sid in storage.all().keys())
+            self.assertTrue(mdl_sid1 in storage.all().keys())
+            clear_stream(cout)
+            cons.onecmd('all BaseModel')
+            self.assertIn('[BaseModel] ({})'.format(mdl_id), cout.getvalue())
+            self.assertNotIn('[Amenity] ({})'.format(mdl_id1), cout.getvalue())
+            clear_stream(cout)
+            cons.onecmd('all')
+            self.assertIn('[BaseModel] ({})'.format(mdl_id), cout.getvalue())
+            self.assertIn('[Amenity] ({})'.format(mdl_id1), cout.getvalue())
+        # endregion
+        # region The update command
+            # missing instance id
+            clear_stream(cout)
+            cons.onecmd('update BaseModel')
+            self.assertEqual(cout.getvalue(), "** instance id missing **\n")
+            # invalid instance id
+            clear_stream(cout)
+            cons.onecmd('update BaseModel 49faff9a-451f-87b6-910505c55907')
+            self.assertEqual(cout.getvalue(), "** no instance found **\n")
+            # missing attribute name
+            clear_stream(cout)
+            cons.onecmd('create BaseModel')
+            mdl_id = cout.getvalue().strip()
+            clear_stream(cout)
+            cons.onecmd('update BaseModel {}'.format(mdl_id))
+            self.assertEqual(cout.getvalue(), "** attribute name missing **\n")
+            # missing attribute value
+            clear_stream(cout)
+            cons.onecmd('update BaseModel {} first_name'.format(mdl_id))
+            self.assertEqual(cout.getvalue(), "** value missing **\n")
+            # missing attribute value
+            clear_stream(cout)
+            if os.path.isfile('file.json'):
+                os.unlink('file.json')
+            self.assertFalse(os.path.isfile('file.json'))
+            cons.onecmd('update BaseModel {} first_name Chris'.format(mdl_id))
+            self.assertEqual(cout.getvalue(), "")
+            mdl_sid = 'BaseModel.{}'.format(mdl_id)
+            self.assertTrue(mdl_sid in storage.all().keys())
+            self.assertTrue(os.path.isfile('file.json'))
+            self.assertTrue(hasattr(storage.all()[mdl_sid], 'first_name'))
+            self.assertEqual(
+                getattr(storage.all()[mdl_sid], 'first_name', ''),
+                'Chris'
+            )
+        # endregion
 
-    def test_help_EOF_console_cmd(self):
+    def test_user(self):
+        """Tests the show, create, destroy, update, and all
+        commands with a User model.
         """
-        Tests <help EOF>
-        """
-        with patch('sys.stdout', new=StringIO()) as f:
-            HBNBCommand().onecmd("help EOF")
-            self.assertRegex(f.getvalue(), 'EOF command+')
+        with patch('sys.stdout', new=StringIO()) as cout:
+            cons = HBNBCommand()
+            # creating a User instance
+            cons.onecmd('create User')
+            mdl_id = cout.getvalue().strip()
+            # showing a User instance
+            clear_stream(cout)
+            cons.onecmd('show User {}'.format(mdl_id))
+            self.assertIn(mdl_id, cout.getvalue())
+            self.assertIn('[User] ({})'.format(mdl_id), cout.getvalue())
+            # showing all User instances
+            clear_stream(cout)
+            cons.onecmd('all User')
+            self.assertIn(mdl_id, cout.getvalue())
+            self.assertIn('[User] ({})'.format(mdl_id), cout.getvalue())
+            # updating a User instance
+            clear_stream(cout)
+            cons.onecmd('update User {} first_name Akpanoko'.format(mdl_id))
+            cons.onecmd('show User {}'.format(mdl_id))
+            self.assertIn(mdl_id, cout.getvalue())
+            self.assertIn(
+                "'first_name': 'Akpanoko'".format(mdl_id),
+                cout.getvalue()
+            )
+            # destroying a User instance
+            clear_stream(cout)
+            cons.onecmd('destroy User {}'.format(mdl_id))
+            self.assertEqual(cout.getvalue(), '')
+            cons.onecmd('show User {}'.format(mdl_id))
+            self.assertEqual(cout.getvalue(), '** no instance found **\n')
 
-    def test_help_create_console_cmd(self):
+    def test_class_all(self):
+        """Tests the ClassName.all() feature.
         """
-        Tests <help create>
-        """
-        with patch('sys.stdout', new=StringIO()) as f:
-            HBNBCommand().onecmd("help create")
-            self.assertRegex(f.getvalue(), 'Create command+')
+        with patch('sys.stdout', new=StringIO()) as cout:
+            cons = HBNBCommand()
+            # create a sample object and show it
+            cons.onecmd('create City')
+            mdl_id = cout.getvalue().strip()
+            clear_stream(cout)
+            cmd_line = cons.precmd('City.all()'.format(mdl_id))
+            cons.onecmd(cmd_line)
+            self.assertIn(mdl_id, cout.getvalue())
 
-    def test_create_console_cmd_should_fail_without_clsname(self):
+    def test_class_count(self):
+        """Tests the ClassName.count() feature.
         """
-        Test <create>
-        """
-        with patch('sys.stdout', new=StringIO()) as f:
-            HBNBCommand().onecmd("create")
-            expected = "** class name missing **\n"
-            self.assertEqual(expected, f.getvalue())
+        with patch('sys.stdout', new=StringIO()) as cout:
+            cons = HBNBCommand()
+            # no objects
+            cmd_line = cons.precmd('User.count()')
+            cons.onecmd(cmd_line)
+            self.assertEqual(cout.getvalue(), "0\n")
+            # creating objects and counting them
+            cons.onecmd('create User')
+            cons.onecmd('create User')
+            clear_stream(cout)
+            cmd_line = cons.precmd('User.count()')
+            cons.onecmd(cmd_line)
+            self.assertEqual(cout.getvalue(), "2\n")
+            self.assertTrue(int(cout.getvalue()) >= 0)
 
-    def test_create_console_cmd_should_fail_with_wrong_clsname(self):
+    def test_class_show(self):
+        """Tests the ClassName.show(id) feature.
         """
-        Test <create WrongClsName>
-        """
-        with patch('sys.stdout', new=StringIO()) as f:
-            HBNBCommand().onecmd("create WrongClsName")
-            expected = "** class doesn't exist **\n"
-            self.assertEqual(expected, f.getvalue())
+        with patch('sys.stdout', new=StringIO()) as cout:
+            cons = HBNBCommand()
+            # create a sample object and show it
+            cons.onecmd('create City')
+            mdl_id = cout.getvalue().strip()
+            clear_stream(cout)
+            cmd_line = cons.precmd('City.show({})'.format(mdl_id))
+            cons.onecmd(cmd_line)
+            self.assertIn(mdl_id, cout.getvalue())
 
-    def test_create_console_cmd_should_work_properly(self):
+    def test_class_destroy(self):
+        """Tests the ClassName.destroy(id) feature.
         """
-        Test <create BaseModel>
-        """
-        for className in TestConsole.classes:
-            instance_before = len(storage.all())
-            with patch('sys.stdout', new=StringIO()) as f:
-                HBNBCommand().onecmd("create {}".format(className))
-                instance_after = len(storage.all())
-                key_id = className + "." + f.getvalue().strip("\n")
-                self.assertIn(key_id, storage.all().keys())
-                self.assertEqual(instance_before + 1, instance_after)
+        with patch('sys.stdout', new=StringIO()) as cout:
+            cons = HBNBCommand()
+            # create a sample object and destroy it
+            cons.onecmd('create City')
+            mdl_id = cout.getvalue().strip()
+            clear_stream(cout)
+            cmd_line = cons.precmd('City.destroy({})'.format(mdl_id))
+            cons.onecmd(cmd_line)
+            clear_stream(cout)
+            cons.onecmd('show City {}'.format(mdl_id))
+            self.assertEqual(cout.getvalue(), "** no instance found **\n")
 
-    def test_help_show_console_cmd(self):
+    def test_class_update_0(self):
+        """Tests the ClassName.update(id, attr_name, attr_value) feature.
         """
-        Tests <help show>
-        """
-        with patch('sys.stdout', new=StringIO()) as f:
-            HBNBCommand().onecmd("help show")
-            self.assertRegex(f.getvalue(), 'Show command+')
+        with patch('sys.stdout', new=StringIO()) as cout:
+            cons = HBNBCommand()
+            # create a sample object and update it
+            cons.onecmd('create Place')
+            mdl_id = cout.getvalue().strip()
+            clear_stream(cout)
+            cmd_line = cons.precmd(
+                'Place.update({}, '.format(mdl_id) +
+                'name, "Rio de Janeiro")'
+            )
+            cons.onecmd(cmd_line)
+            cons.onecmd('show Place {}'.format(mdl_id))
+            self.assertIn(
+                "'name': 'Rio de Janeiro'",
+                cout.getvalue()
+            )
 
-    def test_show_console_cmd_should_fails_without_clsname(self):
+    def test_class_update_1(self):
+        """Tests the ClassName.update(id, dict_repr) feature.
         """
-        Tests <show>
-        """
-        with patch('sys.stdout', new=StringIO()) as f:
-            HBNBCommand().onecmd("show")
-            expected = "** class name missing **\n"
-            self.assertEqual(expected, f.getvalue())
-
-    def test_show_console_cmd_should_fail_with_wrong_clsname(self):
-        """
-        Test <show WrongClsName>
-        """
-        with patch('sys.stdout', new=StringIO()) as f:
-            HBNBCommand().onecmd("show WrongClsName")
-            expected = "** class doesn't exist **\n"
-            self.assertEqual(expected, f.getvalue())
-
-    def test_show_console_cmd_should_fail_without_id(self):
-        """
-        Test <show BaseModel>
-        """
-        for className in TestConsole.classes:
-            with patch('sys.stdout', new=StringIO()) as f:
-                HBNBCommand().onecmd("show {}".format(className))
-                expected = "** instance id missing **\n"
-                self.assertEqual(expected, f.getvalue())
-
-    def test_show_console_cmd_should_fail_with_wrong_id(self):
-        """
-        Test <show BaseModel 1212121212>
-        """
-        for className in TestConsole.classes:
-            with patch('sys.stdout', new=StringIO()) as f:
-                HBNBCommand().onecmd("show {} 1212121212".format(className))
-                expected = "** no instance found **\n"
-                self.assertEqual(expected, f.getvalue())
-
-    def test_help_destroy_console_cmd(self):
-        """
-        Tests <help destroy>
-        """
-        with patch('sys.stdout', new=StringIO()) as f:
-            HBNBCommand().onecmd("help destroy")
-            self.assertRegex(f.getvalue(), 'Destroy command+')
-
-    def test_destroy_console_cmd_should_fails_without_clsname(self):
-        """
-        Tests <destroy>
-        """
-        with patch('sys.stdout', new=StringIO()) as f:
-            HBNBCommand().onecmd("destroy")
-            expected = "** class name missing **\n"
-            self.assertEqual(expected, f.getvalue())
-
-    def test_destroy_console_cmd_should_fail_with_wrong_clsname(self):
-        """
-        Test <destroy WrongClsName>
-        """
-        with patch('sys.stdout', new=StringIO()) as f:
-            HBNBCommand().onecmd("destroy WrongClsName")
-            expected = "** class doesn't exist **\n"
-            self.assertEqual(expected, f.getvalue())
-
-    def test_destroy_console_cmd_should_fail_without_id(self):
-        """
-        Test <destroy BaseModel>
-        """
-        for className in TestConsole.classes:
-            with patch('sys.stdout', new=StringIO()) as f:
-                HBNBCommand().onecmd("destroy {}".format(className))
-                expected = "** instance id missing **\n"
-                self.assertEqual(expected, f.getvalue())
-
-    def test_destroy_console_cmd_should_fail_with_wrong_id(self):
-        """
-        Test <destroy BaseModel 1212121212>
-        """
-        for className in TestConsole.classes:
-            with patch('sys.stdout', new=StringIO()) as f:
-                HBNBCommand().onecmd("destroy {} 12121212".format(className))
-                expected = "** no instance found **\n"
-                self.assertEqual(expected, f.getvalue())
-
-    def test_destroy_console_cmd_work_as_expected(self):
-        """
-        Test <destroy BaseModel id>
-        objects = storage.all()
-        length_before = len(objects)
-        while length_before > 0:
-            key = random.choice(list(objects.keys()))
-            id = key.split(".")[1]
-            className = key.split(".")[0]
-            HBNBCommand().onecmd("destroy {} {}".format(className, id))
-            length_after = len(objects)
-            self.assertEqual(length_before - 1, length_after)
-            self.assertNotIn(key, storage.all().keys())
-            length_before = length_after
-        """
-
-    def test_help_all_console_cmd(self):
-        """
-        Tests <help all>
-        """
-        with patch('sys.stdout', new=StringIO()) as f:
-            HBNBCommand().onecmd("help all")
-            self.assertRegex(f.getvalue(), 'All command+')
-
-    def test_all_console_cmd_should_fail_with_wrong_clsname(self):
-        """
-        Test <all WrongClsName>
-        """
-        with patch('sys.stdout', new=StringIO()) as f:
-            HBNBCommand().onecmd("all WrongClsName")
-            expected = "** class doesn't exist **\n"
-            self.assertEqual(expected, f.getvalue())
-
-    def test_all_command(self):
-        """
-            test <all>
-            test <all> <className>
-        """
-        with patch('sys.stdout', new=StringIO()) as f:
-            HBNBCommand().onecmd("all")
-            res = []
-            for key, val in storage.all().items():
-                res.append(str(val))
-            self.assertEqual(eval(f.getvalue()), res)
-        for className in TestConsole.classes:
-            with patch('sys.stdout', new=StringIO()) as f:
-                HBNBCommand().onecmd("all {}".format(className))
-                res = []
-                for key, val in storage.all().items():
-                    if val.__class__.__name__ == className:
-                        res.append(str(val))
-                self.assertEqual(eval(f.getvalue()), res)
-
-    def test_help_update_console_cmd(self):
-        """
-        Tests <help update>
-        """
-        with patch('sys.stdout', new=StringIO()) as f:
-            HBNBCommand().onecmd("help update")
-            self.assertRegex(f.getvalue(), 'Update command+')
-
-    def test_update_console_cmd_should_fails_without_clsname(self):
-        """
-        Tests <update>
-        """
-        with patch('sys.stdout', new=StringIO()) as f:
-            HBNBCommand().onecmd("update")
-            expected = "** class name missing **\n"
-            self.assertEqual(expected, f.getvalue())
-
-    def test_update_console_cmd_should_fail_with_wrong_clsname(self):
-        """
-        Test <update WrongClsName>
-        """
-        with patch('sys.stdout', new=StringIO()) as f:
-            HBNBCommand().onecmd("update WrongClsName")
-            expected = "** class doesn't exist **\n"
-            self.assertEqual(expected, f.getvalue())
-
-    def test_update_console_cmd_should_fail_without_id(self):
-        """
-        Test <update BaseModel>
-        """
-        for className in TestConsole.classes:
-            with patch('sys.stdout', new=StringIO()) as f:
-                HBNBCommand().onecmd("update {}".format(className))
-                expected = "** instance id missing **\n"
-                self.assertEqual(expected, f.getvalue())
-
-    def test_update_console_cmd_should_fail_with_wrong_id(self):
-        """
-        Test <update BaseModel 1212121212>
-        """
-        for className in TestConsole.classes:
-            with patch('sys.stdout', new=StringIO()) as f:
-                HBNBCommand().onecmd("update {} 1212121".format(className))
-                expected = "** no instance found **\n"
-                self.assertEqual(expected, f.getvalue())
+        with patch('sys.stdout', new=StringIO()) as cout:
+            cons = HBNBCommand()
+            # create a sample object and update it
+            cons.onecmd('create Amenity')
+            mdl_id = cout.getvalue().strip()
+            clear_stream(cout)
+            cmd_line = cons.precmd(
+                'Amenity.update({}, '.format(mdl_id) +
+                "{'name': 'Basketball court'})"
+            )
+            cons.onecmd(cmd_line)
+            cons.onecmd('show Amenity {}'.format(mdl_id))
+            self.assertIn(
+                "'name': 'Basketball court'",
+                cout.getvalue()
+            )

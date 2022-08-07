@@ -1,27 +1,22 @@
 #!/usr/bin/python3
-"""Test User"""
-import unittest
+''' module for user tests '''
+from unittest import TestCase
+import json
+import re
+from uuid import UUID, uuid4
+from datetime import datetime
+from time import sleep
+
 from models.base_model import BaseModel
-from models.city import City
-from models.place import Place
-from models.amenity import Amenity
-from models.state import State
-from models.review import Review
 from models.user import User
 
 
-class Testuser(unittest.TestCase):
-    """unit test"""
-    def test_User(self):
-        """
-        Test Class Use
-        """
-        my_user = User()
-        self.assertTrue(hasattr(my_user, "first_name"))
-        self.assertEqual(my_user.first_name, "")
-        self.assertTrue(hasattr(my_user, "last_name"))
-        self.assertEqual(my_user.last_name, "")
-        self.assertTrue(hasattr(my_user, "email"))
-        self.assertEqual(my_user.email, "")
-        self.assertTrue(hasattr(my_user, "password"))
-        self.assertEqual(my_user.password, "")
+class TestUser(TestCase):
+    ''' tests User class '''
+    def test_8(self):
+        ''' task 8 tests '''
+        self.assertTrue(issubclass(User, BaseModel))
+        self.assertEqual(User.email, '')
+        self.assertEqual(User.password, '')
+        self.assertEqual(User.first_name, '')
+        self.assertEqual(User.last_name, '')
