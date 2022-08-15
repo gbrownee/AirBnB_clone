@@ -1,1 +1,1 @@
-Web Static
+Directory for Web Static Project
